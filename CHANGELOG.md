@@ -15,6 +15,11 @@ and adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   local variables, `require(...)` imports, and the call edges between them.
   Querying a Lua project (Neovim plugins, Kong, OpenResty, game code) now
   surfaces its modules, methods, and call graph.
+- **Luau** ([#232](https://github.com/colbymchenry/codegraph/issues/232)):
+  CodeGraph now indexes Luau (`.luau`), Roblox's typed superset of Lua —
+  everything Lua extracts, plus `type` / `export type` aliases, typed function
+  signatures, generics, and Roblox instance-path `require(script.Parent.X)`
+  imports.
 
 ## [0.8.0] - 2026-05-20
 

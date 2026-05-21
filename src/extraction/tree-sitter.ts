@@ -1122,8 +1122,8 @@ export class TreeSitterExtractor {
           }
         }
       }
-    } else if (this.language === 'lua') {
-      // Lua: variable_declaration → assignment_statement → variable_list
+    } else if (this.language === 'lua' || this.language === 'luau') {
+      // Lua/Luau: variable_declaration → assignment_statement → variable_list
       //      (name: identifier...) = expression_list. `local x, y = 1, 2`
       //      declares multiple names; only plain identifiers are locals.
       const assign = node.namedChildren.find((c) => c.type === 'assignment_statement') ?? node;

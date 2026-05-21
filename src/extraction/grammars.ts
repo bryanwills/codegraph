@@ -36,6 +36,7 @@ const WASM_GRAMMAR_FILES: Record<GrammarLanguage, string> = {
   pascal: 'tree-sitter-pascal.wasm',
   scala: 'tree-sitter-scala.wasm',
   lua: 'tree-sitter-lua.wasm',
+  luau: 'tree-sitter-luau.wasm',
 };
 
 /**
@@ -80,6 +81,7 @@ export const EXTENSION_MAP: Record<string, Language> = {
   '.scala': 'scala',
   '.sc': 'scala',
   '.lua': 'lua',
+  '.luau': 'luau',
 };
 
 /**
@@ -132,7 +134,7 @@ export async function loadGrammarsForLanguages(languages: Language[]): Promise<v
       // ABI-13 build that corrupts the shared WASM heap under web-tree-sitter
       // 0.25 (drops nested calls/imports on every file after the first); we
       // vendor the upstream ABI-15 wasm instead.
-      const wasmPath = (lang === 'pascal' || lang === 'scala' || lang === 'lua')
+      const wasmPath = (lang === 'pascal' || lang === 'scala' || lang === 'lua' || lang === 'luau')
         ? path.join(__dirname, 'wasm', wasmFile)
         : require.resolve(`tree-sitter-wasms/out/${wasmFile}`);
       const language = await WasmLanguage.load(wasmPath);
@@ -298,6 +300,7 @@ export function getLanguageDisplayName(language: Language): string {
     pascal: 'Pascal / Delphi',
     scala: 'Scala',
     lua: 'Lua',
+    luau: 'Luau',
     unknown: 'Unknown',
   };
   return names[language] || language;

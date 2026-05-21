@@ -17,9 +17,13 @@ function findDescendant(node: SyntaxNode, type: string): SyntaxNode | null {
 }
 
 /**
- * If `callNode` is a `require("module")` / `require "module"` call, return the
- * bare module string; otherwise null. Lua has no import statement — modules are
- * loaded by calling the global `require`.
+ * If `callNode` is a `require(...)` call, return the module name; otherwise null.
+ * Lua/Luau have no import statement — modules are loaded by calling the global
+ * `require`. Handles both:
+ *   - string requires:  `require("net.http")` / `require "net.http"`  → "net.http"
+ *   - Roblox/Luau path requires: `require(script.Parent.Signal)`      → "Signal"
+ *     (the dominant idiom in Roblox code, where the argument is an instance path
+ *     rather than a string — use the trailing field as the module name).
  */
 function requireModule(callNode: SyntaxNode, source: string): string | null {
   // function_call > name: <callee>, arguments: arguments
@@ -31,19 +35,28 @@ function requireModule(callNode: SyntaxNode, source: string): string | null {
 
   const args = getChildByField(callNode, 'arguments');
   if (!args) return null;
-  // `string > content: string_content` gives the bare module name (no quotes).
+
+  // String require — `string > content: string_content` gives the bare name.
   const content = findDescendant(args, 'string_content');
   if (content) return getNodeText(content, source).trim() || null;
-  // Fallback: a string node without a content child — strip delimiters.
   const str = findDescendant(args, 'string');
-  if (!str) return null;
-  const mod = getNodeText(str, source)
-    .trim()
-    .replace(/^\[\[/, '')
-    .replace(/\]\]$/, '')
-    .replace(/^["']/, '')
-    .replace(/["']$/, '');
-  return mod || null;
+  if (str) {
+    const mod = getNodeText(str, source)
+      .trim()
+      .replace(/^\[\[/, '')
+      .replace(/\]\]$/, '')
+      .replace(/^["']/, '')
+      .replace(/["']$/, '');
+    if (mod) return mod;
+  }
+
+  // Roblox/Luau instance-path require: `require(script.Parent.Signal)` → "Signal".
+  const idx = findDescendant(args, 'dot_index_expression') ?? findDescendant(args, 'method_index_expression');
+  if (idx) {
+    const field = getChildByField(idx, 'field') ?? getChildByField(idx, 'method');
+    if (field) return getNodeText(field, source).trim() || null;
+  }
+  return null;
 }
 
 export const luaExtractor: LanguageExtractor = {
