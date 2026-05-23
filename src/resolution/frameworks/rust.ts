@@ -135,37 +135,56 @@ export const rustResolver: FrameworkResolver = {
       }
     }
 
-    // Axum: .route("/path", get(handler))
-    const axumRegex = /\.route\s*\(\s*"([^"]+)"\s*,\s*(get|post|put|patch|delete)\s*\(\s*(\w+)/g;
-    while ((match = axumRegex.exec(safe)) !== null) {
-      const [, routePath, method, handler] = match;
+    // Axum: .route("/path", get(h1).post(h2)…) — balanced-paren scan the route
+    // call, then emit one route node per chained method. Handlers may be
+    // namespaced (`get(module::handler)`, `get(self::list)`); take the last
+    // path segment so the ref names the fn, not the module.
+    const routeOpenRegex = /\.route\s*\(/g;
+    while ((match = routeOpenRegex.exec(safe)) !== null) {
+      const openIdx = safe.indexOf('(', match.index);
+      if (openIdx < 0) continue;
+      const closeIdx = findMatchingParen(safe, openIdx);
+      if (closeIdx < 0) continue;
+
+      const args = safe.slice(openIdx + 1, closeIdx);
+      const pathMatch = args.match(/^\s*"([^"]+)"\s*,/);
+      if (!pathMatch) continue;
+      const routePath = pathMatch[1]!;
       const line = safe.slice(0, match.index).split('\n').length;
-      const upper = method!.toUpperCase();
 
-      const routeNode: Node = {
-        id: `route:${filePath}:${line}:${upper}:${routePath}`,
-        kind: 'route',
-        name: `${upper} ${routePath}`,
-        qualifiedName: `${filePath}::route:${routePath}`,
-        filePath,
-        startLine: line,
-        endLine: line,
-        startColumn: 0,
-        endColumn: match[0].length,
-        language: 'rust',
-        updatedAt: now,
-      };
-      nodes.push(routeNode);
+      const methodBody = args.slice(pathMatch[0].length);
+      const methodHandlerRegex = /\b(get|post|put|patch|delete|head|options|trace)\s*\(\s*([A-Za-z_][\w:]*)/g;
+      let mh: RegExpExecArray | null;
+      while ((mh = methodHandlerRegex.exec(methodBody)) !== null) {
+        const upper = mh[1]!.toUpperCase();
+        const handler = mh[2]!.split('::').filter(Boolean).pop();
+        if (!handler) continue;
 
-      references.push({
-        fromNodeId: routeNode.id,
-        referenceName: handler!,
-        referenceKind: 'references',
-        line,
-        column: 0,
-        filePath,
-        language: 'rust',
-      });
+        const routeNode: Node = {
+          id: `route:${filePath}:${line}:${upper}:${routePath}`,
+          kind: 'route',
+          name: `${upper} ${routePath}`,
+          qualifiedName: `${filePath}::route:${routePath}`,
+          filePath,
+          startLine: line,
+          endLine: line,
+          startColumn: 0,
+          endColumn: 0,
+          language: 'rust',
+          updatedAt: now,
+        };
+        nodes.push(routeNode);
+
+        references.push({
+          fromNodeId: routeNode.id,
+          referenceName: handler,
+          referenceKind: 'references',
+          line,
+          column: 0,
+          filePath,
+          language: 'rust',
+        });
+      }
     }
 
     return { nodes, references };
@@ -180,6 +199,19 @@ const MODEL_DIRS = ['/models/', '/model/', '/entities/', '/entity/', '/domain/',
 const FUNCTION_KINDS = new Set(['function']);
 const SERVICE_KINDS = new Set(['struct', 'trait']);
 const STRUCT_KINDS = new Set(['struct']);
+
+/** Index of the ')' that matches the '(' at openIdx, or -1 if unbalanced. */
+function findMatchingParen(s: string, openIdx: number): number {
+  let depth = 0;
+  for (let i = openIdx; i < s.length; i++) {
+    if (s[i] === '(') depth++;
+    else if (s[i] === ')') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
 
 /**
  * Resolve a symbol by name using indexed queries instead of scanning all files.

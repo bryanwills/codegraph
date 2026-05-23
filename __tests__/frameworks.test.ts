@@ -590,6 +590,29 @@ describe('rustResolver.extract', () => {
     expect(nodes[0].name).toBe('GET /users');
     expect(references[0].referenceName).toBe('list_users');
   });
+
+  it('extracts every method from a chained axum .route (get().put())', () => {
+    const src = `let app = Router::new().route("/user", get(get_current_user).put(update_user));\n`;
+    const { nodes, references } = rustResolver.extract!('main.rs', src);
+    expect(nodes.map((n) => n.name)).toEqual(['GET /user', 'PUT /user']);
+    expect(references.map((r) => r.referenceName)).toEqual([
+      'get_current_user',
+      'update_user',
+    ]);
+  });
+
+  it('extracts a multi-line axum .route with a namespaced handler', () => {
+    const src = `
+let app = Router::new()
+    .route(
+        "/articles/feed",
+        get(listing::feed_articles),
+    );
+`;
+    const { nodes, references } = rustResolver.extract!('main.rs', src);
+    expect(nodes[0].name).toBe('GET /articles/feed');
+    expect(references[0].referenceName).toBe('feed_articles');
+  });
 });
 
 describe('rustResolver.resolve cargo workspace crates', () => {
