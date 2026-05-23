@@ -188,7 +188,7 @@ Status legend: ✅ done+validated · 🔬 hole identified · ⬜ not started.
 | Kotlin | (coroutines / DI) | flow/callback dispatch | ? | ⬜ |
 | Swift | Vapor | request → route → controller | ? | ⬜ |
 | C# | ASP.NET | request → controller; DI | ? | ⬜ |
-| Ruby | Rails / Sinatra | request → controller → view; callbacks | ? | ⬜ |
+| Ruby | Rails / Sinatra | request → routes.rb → Controller#action → model | R | ✅ **RESTful `resources`/`resource` routing → controller#action** (realworld S 16 / spree M / forem L), pluralization + only/except + claimsReference; explicit routes fixed to precise `controller#action` too. 🔬 ActiveRecord dynamic finders (`Article.find_by_slug`) — metaprogramming frontier |
 | PHP | Laravel / Drupal | request → controller; events | ? | ⬜ |
 | C/C++ | (callback structs / vtables) | function-pointer dispatch | ? | ⬜ |
 | Dart | Flutter | setState → build | S | ⬜ |
@@ -257,6 +257,18 @@ Status legend: ✅ done+validated · 🔬 hole identified · ⬜ not started.
   (246 dup nodes) because the file walk only respects `.gitignore` with no default build-dir ignore. Real
   apps (immich/amplication) gitignore `dist/` (0 dup nodes), so it's narrow — a default ignore for
   `dist/build/out/.next/coverage` is a clean follow-up, deferred (core-indexer change, the user's call).
+- **Rails (validated 2026-05-23, realworld S / spree M / forem L) — high-value RESTful-routing fix.** The
+  `rails` resolver only saw explicit `get '/x' => 'c#a'` routes, so resource-routed apps (the dominant
+  pattern) had ZERO route nodes (realworld + spree). Fixed (`frameworks/ruby.ts`): expand `resources :x` /
+  `resource :x` into their RESTful actions (only/except filters + pluralization for the singular `resource`),
+  reference a precise `controller#action`, and resolve that to the action method in `<ctrl>_controller.rb`
+  (explicit routes fixed too — they referenced a bare ambiguous `action`). realworld **0→16**, forem
+  **0→635** precise route→action edges. Agent A/B (forem comment-creation, large): codegraph **1–4 reads /
+  0 grep / 47–53s** vs without **4–5 reads / 2–3 grep / 66–85s** — fewer reads, no grep, faster. **The
+  `claimsReference` pre-filter was the gotcha:** `articles#index` names no declared symbol, so `resolveOne`
+  dropped it before `resolve()` ran — needed the same claim hook as the django ORM work. Residuals: **Rails
+  Engine routing** (spree still 0 — it mounts an engine, not `config/routes.rb` resources); ActiveRecord
+  dynamic finders (`Article.find_by_slug` — metaprogramming frontier).
 - **Difficulty gradient is real:** named-ref dispatch (resolver) is cheap; anonymous
   callback dispatch (synthesizer) is medium; **anonymous-arrow handlers are the hard
   remaining gap** (no identity → need synthesizer link-through-body, not yet built).
