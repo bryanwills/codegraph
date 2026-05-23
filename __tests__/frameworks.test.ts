@@ -669,6 +669,14 @@ describe('goResolver.extract', () => {
     const { nodes, references } = goResolver.extract!('main.go', src);
     expect(references[0].referenceName).toBe('createItem');
   });
+
+  it('extracts gorilla/mux HandleFunc on a subrouter var, ignoring chained .Methods()', () => {
+    // `s` is a PathPrefix().Subrouter() var — any receiver is matched; the
+    // trailing .Methods("GET") doesn't break the handler capture.
+    const src = `s.HandleFunc("/users/{id}", listUsers).Methods("GET")\n`;
+    const { references } = goResolver.extract!('routes.go', src);
+    expect(references[0].referenceName).toBe('listUsers');
+  });
 });
 
 import { rustResolver } from '../src/resolution/frameworks/rust';
